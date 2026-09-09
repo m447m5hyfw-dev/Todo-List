@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypixel SkyBlock Craft Flips</title>
+<style>
+
+    :root { color-scheme: dark; }
+
+    * { box-sizing: border-box; }
+
+    body { margin: 0; font-family: Arial, sans-serif; background: #101827; color: #eef5ff; }
+
+    main { max-width: 1180px; margin: auto; padding: 28px 18px 50px; }
+
+    h1 { margin: 0 0 8px; color: #55d8ff; }
+
+    p { color: #afbdd0; }
+
+    .panel { margin: 20px 0; padding: 18px; border: 1px solid #2b3c56; border-radius: 12px; background: #172337; }
+
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    input { min-width: 280px; flex: 1; border: 1px solid #3c506d; border-radius: 8px; padding: 12px; background: #0d1522; color: white; font-size: 16px; }
+
+    button { border: 0; border-radius: 8px; padding: 12px 16px; background: #55d8ff; color: #07121f; font-weight: bold; cursor: pointer; font-size: 15px; }
+
+    button:disabled { cursor: wait; opacity: .65; }
+
+    #status { min-height: 24px; margin-top: 12px; color: #c5d4e8; }
+
+    #status.error { color: #ff9090; }
+
+    #status.ok { color: #83f1aa; }
+
+    .note { font-size: 13px; margin-top: 12px; }
+
+    .summary { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+
+    .summary div { background: #172337; padding: 12px 16px; border-radius: 10px; border: 1px solid #2b3c56; }
+
+    table { width: 100%; border-collapse: collapse; overflow: hidden; background: #172337; border-radius: 12px; }
+
+    th, td { text-align: left; padding: 13px 12px; border-bottom: 1px solid #2b3c56; }
+
+    th { color: #8edfff; font-size: 13px; text-transform: uppercase; }
+
+    tr:last-child td { border-bottom: none; }
+
+    .profit { color: #83f1aa; font-weight: bold; }
+
+    .loss { color: #ff9090; font-weight: bold; }
+
+    .muted { color: #aab8ca; font-size: 13px; }
+
+    @media (max-width: 720px) { table { font-size: 13px; } th, td { padding: 10px 7px; } .hide-mobile { display: none; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Hypixel SkyBlock Craft Flips</h1>
+<p>Berechnet Craft-Gewinne mit aktuellen Bazaar-Preisen. Zutaten werden zum Instant-Buy-Preis gekauft; das Ergebnis wird zum Instant-Sell-Preis verkauft.</p>
+<section class="panel">
+<div class="controls">
+<input id="apiKey" type="password" autocomplete="off" placeholder="Deinen Hypixel API-Key einfügen">
+<button id="loadButton" type="button">Craft Flips laden</button>
+<button id="refreshButton" type="button" disabled>Aktualisieren</button>
+</div>
+<div id="status">API-Key einfügen und auf „Craft Flips laden“ klicken.</div>
+<p class="note">Der Key wird nur in deinem Browser gespeichert. Teile ihn mit niemandem. Die Seite aktualisiert die Daten danach alle 30 Sekunden.</p>
+</section>
+<section class="summary">
+<div><span class="muted">Gefundene Flips</span><br><strong id="flipCount">–</strong></div>
+<div><span class="muted">Letzte Aktualisierung</span><br><strong id="updatedAt">–</strong></div>
+</section>
+<div id="results"><p>Noch keine Daten geladen.</p></div>
+</main>
+<script>
+
+    'use strict';
+
+    const recipes = [
+
+      { name: 'Enchanted Coal Block', product: 'ENCHANTED_COAL_BLOCK', ingredients: [{ id: 'ENCHANTED_COAL', amount: 160 }] },
+
+      { name: 'Enchanted Iron Block', product: 'ENCHANTED_IRON_BLOCK', ingredients: [{ id: 'ENCHANTED_IRON', amount: 160 }] },
+
+      { name: 'Enchanted Gold Block', product: 'ENCHANTED_GOLD_BLOCK', ingredients: [{ id: 'ENCHANTED_GOLD', amount: 160 }] },
+
+      { name: 'Enchanted Diamond Block', product: 'ENCHANTED_DIAMOND_BLOCK', ingredients: [{ id: 'ENCHANTED_DIAMOND', amount: 160 }] },
+
+      { name: 'Enchanted Emerald Block', product: 'ENCHANTED_EMERALD_BLOCK', ingredients: [{ id: 'ENCHANTED_EMERALD', amount: 160 }] },
+
+      { name: 'Enchanted Redstone Block', product: 'ENCHANTED_REDSTONE_BLOCK', ingredients: [{ id: 'ENCHANTED_REDSTONE', amount: 160 }] },
+
+      { name: 'Enchanted Lapis Block', product: 'ENCHANTED_LAPIS_BLOCK', ingredients: [{ id: 'ENCHANTED_LAPIS_LAZULI', amount: 160 }] },
+
+      { name: 'Enchanted Quartz Block', product: 'ENCHANTED_QUARTZ_BLOCK', ingredients: [{ id: 'ENCHANTED_QUARTZ', amount: 160 }] },
+
+      { name: 'Enchanted Glowstone', product: 'ENCHANTED_GLOWSTONE', ingredients: [{ id: 'ENCHANTED_GLOWSTONE_DUST', amount: 160 }] },
+
+      { name: 'Enchanted Bone Block', product: 'ENCHANTED_BONE_BLOCK', ingredients: [{ id: 'ENCHANTED_BONE', amount: 160 }] },
+
+      { name: 'Enchanted Hay Bale', product: 'ENCHANTED_HAY_BLOCK', ingredients: [{ id: 'ENCHANTED_WHEAT', amount: 160 }] },
+
+      { name: 'Enchanted Melon Block', product: 'ENCHANTED_MELON_BLOCK', ingredients: [{ id: 'ENCHANTED_MELON', amount: 160 }] },
+
+      { name: 'Enchanted Packed Ice', product: 'ENCHANTED_PACKED_ICE', ingredients: [{ id: 'ENCHANTED_ICE', amount: 160 }] },
+
+      { name: 'Enchanted Baked Potato', product: 'ENCHANTED_BAKED_POTATO', ingredients: [{ id: 'ENCHANTED_POTATO', amount: 64 }] },
+
+      { name: 'Enchanted Bread', product: 'ENCHANTED_BREAD', ingredients: [{ id: 'ENCHANTED_WHEAT', amount: 64 }] },
+
+      { name: 'Enchanted Cookie', product: 'ENCHANTED_COOKIE', ingredients: [{ id: 'ENCHANTED_COCOA', amount: 64 }, { id: 'ENCHANTED_SUGAR_CANE', amount: 64 }] },
+
+      { name: 'Enchanted Golden Carrot', product: 'ENCHANTED_GOLDEN_CARROT', ingredients: [{ id: 'ENCHANTED_CARROT', amount: 64 }, { id: 'ENCHANTED_GOLD', amount: 8 }] }
+
+    ];
+
+    const labels = {
+
+      ENCHANTED_COAL: 'Enchanted Coal', ENCHANTED_IRON: 'Enchanted Iron', ENCHANTED_GOLD: 'Enchanted Gold',
+
+      ENCHANTED_DIAMOND: 'Enchanted Diamond', ENCHANTED_EMERALD: 'Enchanted Emerald', ENCHANTED_REDSTONE: 'Enchanted Redstone',
+
+      ENCHANTED_LAPIS_LAZULI: 'Enchanted Lapis Lazuli', ENCHANTED_QUARTZ: 'Enchanted Quartz',
+
+      ENCHANTED_GLOWSTONE_DUST: 'Enchanted Glowstone Dust', ENCHANTED_BONE: 'Enchanted Bone',
+
+      ENCHANTED_WHEAT: 'Enchanted Wheat', ENCHANTED_MELON: 'Enchanted Melon', ENCHANTED_ICE: 'Enchanted Ice',
+
+      ENCHANTED_POTATO: 'Enchanted Potato', ENCHANTED_COCOA: 'Enchanted Cocoa', ENCHANTED_SUGAR_CANE: 'Enchanted Sugar Cane',
+
+      ENCHANTED_CARROT: 'Enchanted Carrot'
+
+    };
+
+    const apiKeyInput = document.getElementById('apiKey');
+
+    const loadButton = document.getElementById('loadButton');
+
+    const refreshButton = document.getElementById('refreshButton');
+
+    const status = document.getElementById('status');
+
+    const results = document.getElementById('results');
+
+    let refreshTimer = null;
+
+    apiKeyInput.value = localStorage.getItem('hypixelCraftFlipKey') || '';
+
+    function setStatus(message, type) {
+
+      status.textContent = message;
+
+      status.className = type || '';
+
+    }
+
+    function formatCoins(value) {
+
+      return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(value) + ' Coins';
+
+    }
+
+    function escapeHtml(text) {
+
+      return String(text).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+
+    }
+
+    async function loadFlips() {
+
+      const key = apiKeyInput.value.trim();
+
+      if (!key) {
+
+        setStatus('Bitte gib zuerst deinen Hypixel API-Key ein.', 'error');
+
+        return;
+
+      }
+
+      localStorage.setItem('hypixelCraftFlipKey', key);
+
+      loadButton.disabled = true;
+
+      refreshButton.disabled = true;
+
+      setStatus('Bazaar-Daten werden geladen …');
+
+      try {
+
+        const response = await fetch('https://api.hypixel.net/v2/skyblock/bazaar', {
+
+          headers: { 'API-Key': key }
+
+        });
+
+        if (!response.ok) {
+
+          throw new Error('HTTP ' + response.status);
+
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.products) {
+
+          throw new Error(data.cause || 'Die API hat keine Bazaar-Daten geliefert.');
+
+        }
+
+        const flips = calculateFlips(data.products);
+
+        renderFlips(flips);
+
+        document.getElementById('flipCount').textContent = flips.length;
+
+        document.getElementById('updatedAt').textContent = new Date().toLocaleTimeString('de-DE');
+
+        setStatus('Bazaar-Daten erfolgreich geladen. Automatische Aktualisierung läuft.', 'ok');
+
+        refreshButton.disabled = false;
+
+        clearInterval(refreshTimer);
+
+        refreshTimer = setInterval(loadFlips, 30000);
+
+      } catch (error) {
+
+        let message = 'Fehler beim Laden: ' + error.message;
+
+        if (error.message === 'Failed to fetch') {
+
+          message += '. Öffne die Datei über einen lokalen Webserver (siehe Hinweis unten) oder prüfe deine Internetverbindung.';
+
+        }
+
+        setStatus(message, 'error');
+
+      } finally {
+
+        loadButton.disabled = false;
+
+      }
+
+    }
+
+    function calculateFlips(products) {
+
+      const flips = [];
+
+      for (const recipe of recipes) {
+
+        const product = products[recipe.product] && products[recipe.product].quick_status;
+
+        if (!product || !Number.isFinite(product.sellPrice) || product.sellPrice <= 0) continue;
+
+        let cost = 0;
+
+        let valid = true;
+
+        const ingredientText = [];
+
+        for (const ingredient of recipe.ingredients) {
+
+          const item = products[ingredient.id] && products[ingredient.id].quick_status;
+
+          if (!item || !Number.isFinite(item.buyPrice) || item.buyPrice <= 0) {
+
+            valid = false;
+
+            break;
+
+          }
+
+          const itemCost = item.buyPrice * ingredient.amount;
+
+          cost += itemCost;
+
+          ingredientText.push((labels[ingredient.id] || ingredient.id) + ' ×' + ingredient.amount);
+
+        }
+
+        if (!valid || cost <= 0) continue;
+
+        const revenue = product.sellPrice;
+
+        const profit = revenue - cost;
+
+        const margin = profit / cost * 100;
+
+        flips.push({ name: recipe.name, ingredients: ingredientText.join(', '), cost, revenue, profit, margin });
+
+      }
+
+      return flips.sort((a, b) => b.profit - a.profit);
+
+    }
+
+    function renderFlips(flips) {
+
+      if (flips.length === 0) {
+
+        results.innerHTML = '<p>Für die hinterlegten Rezepte sind gerade keine vollständigen Bazaar-Daten verfügbar.</p>';
+
+        return;
+
+      }
+
+      const rows = flips.map(flip => {
+
+        const cls = flip.profit >= 0 ? 'profit' : '
+ 
